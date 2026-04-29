@@ -33,24 +33,25 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-4 py-10">
-      <section className="w-full rounded-2xl bg-white p-6 shadow-sm sm:p-8">
-        <h1 className="text-2xl font-bold">Create account</h1>
-        <p className="mt-1 text-sm text-slate-600">Sign up to access your dashboard.</p>
+    <main className="flex min-h-screen items-center justify-center bg-gray-950 px-4 py-10">
+      <section className="w-full max-w-md rounded-xl bg-gray-900 p-6 shadow sm:p-8">
+        <h1 className="text-2xl font-bold text-white">Create account</h1>
+        <p className="mt-1 text-sm text-gray-300">Sign up to access your dashboard.</p>
 
         <form onSubmit={handleSignup} className="mt-6 space-y-4">
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-medium text-gray-200">
             Email
             <input
               type="email"
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              placeholder="you@example.com"
+              className="mt-2 w-full rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-900"
             />
           </label>
 
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-medium text-gray-200">
             Password
             <input
               type="password"
@@ -58,24 +59,25 @@ export default function SignupPage() {
               minLength={6}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              placeholder="At least 6 characters"
+              className="mt-2 w-full rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-900"
             />
           </label>
 
-          {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+          {errorMessage ? <p className="text-sm text-red-400">{errorMessage}</p> : null}
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? "Creating account..." : "Sign up"}
           </button>
         </form>
 
-        <p className="mt-4 text-sm text-slate-600">
+        <p className="mt-4 text-sm text-gray-300">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-slate-900 underline">
+          <Link href="/login" className="font-medium text-white underline">
             Log in
           </Link>
         </p>

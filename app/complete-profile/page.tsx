@@ -111,22 +111,22 @@ export default function CompleteProfilePage() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-lg items-center justify-center px-4 py-10">
+      <main className="flex min-h-screen items-center justify-center bg-gray-950 px-4 py-10">
         <p className="text-sm text-slate-200">Loading profile setup...</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-lg items-center px-4 py-10">
-      <section className="w-full rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl sm:p-8">
+    <main className="flex min-h-screen items-center justify-center bg-gray-950 px-4 py-10">
+      <section className="w-full max-w-lg rounded-xl border border-slate-800 bg-gray-900 p-6 shadow sm:p-8">
         <h1 className="text-2xl font-bold text-slate-100">Complete Profile</h1>
         <p className="mt-2 text-sm text-slate-300">
           Set your username to continue to LiftBoard.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <label className="block text-sm font-medium text-slate-100">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          <label className="block text-sm font-medium text-gray-300">
             Username
             <input
               type="text"
@@ -137,17 +137,19 @@ export default function CompleteProfilePage() {
               onChange={(event) =>
                 setUsername(event.target.value.toLowerCase().replace(/\s+/g, ""))
               }
-              className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+              placeholder="e.g. ironlifter"
+              className="mt-2 w-full rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
             />
           </label>
 
-          <label className="block text-sm font-medium text-slate-100">
+          <label className="block text-sm font-medium text-gray-300">
             Display Name (optional)
             <input
               type="text"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+              placeholder="How others see your name"
+              className="mt-2 w-full rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
             />
           </label>
 

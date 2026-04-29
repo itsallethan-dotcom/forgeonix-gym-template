@@ -121,6 +121,12 @@ type RecentActivityRow = {
   profiles: Omit<JoinedProfile, "id"> | Omit<JoinedProfile, "id">[] | null;
 };
 
+type Badge = {
+  id: string;
+  label: string;
+  earned: boolean;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<DashboardUser | null>(null);
@@ -167,6 +173,13 @@ export default function DashboardPage() {
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const [selectedAvatarPreviewUrl, setSelectedAvatarPreviewUrl] = useState<string | null>(null);
   const [workoutFormTouched, setWorkoutFormTouched] = useState(false);
+  const [deletingWorkoutId, setDeletingWorkoutId] = useState<string | null>(null);
+  const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
+  const [editExerciseName, setEditExerciseName] = useState("");
+  const [editWeight, setEditWeight] = useState("");
+  const [editReps, setEditReps] = useState("");
+  const [editSets, setEditSets] = useState("");
+  const [isSavingWorkoutEdit, setIsSavingWorkoutEdit] = useState(false);
 
   const stats = workouts.reduce(
     (acc, entry) => {
@@ -197,6 +210,50 @@ export default function DashboardPage() {
   };
 
   const profileDisplayName = publicDisplayName(profile?.display_name ?? null, profile?.username ?? null);
+  const toDayKey = (value: string | Date) => {
+    const date = value instanceof Date ? value : new Date(value);
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const formatRelativeTime = (value: string) => {
+    const ms = new Date(value).getTime() - Date.now();
+    const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    if (Math.abs(ms) < hour) return formatter.format(Math.round(ms / minute), "minute");
+    if (Math.abs(ms) < day) return formatter.format(Math.round(ms / hour), "hour");
+    return formatter.format(Math.round(ms / day), "day");
+  };
+  const workoutDaySet = new Set(workouts.map((entry) => toDayKey(entry.created_at)));
+  const totalWorkoutDays = workoutDaySet.size;
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  let streakCursor = workoutDaySet.has(toDayKey(today))
+    ? new Date(today)
+    : workoutDaySet.has(toDayKey(yesterday))
+      ? new Date(yesterday)
+      : null;
+  let currentStreak = 0;
+  while (streakCursor && workoutDaySet.has(toDayKey(streakCursor))) {
+    currentStreak += 1;
+    streakCursor = new Date(streakCursor);
+    streakCursor.setDate(streakCursor.getDate() - 1);
+  }
+  const badges: Badge[] = [
+    { id: "first-workout", label: "First Workout", earned: workouts.length > 0 },
+    { id: "streak-3", label: "3-Day Streak", earned: currentStreak >= 3 },
+    { id: "streak-7", label: "7-Day Streak", earned: currentStreak >= 7 },
+    { id: "volume-10k", label: "10,000 lb Total Volume", earned: stats.totalVolume >= 10_000 },
+    { id: "volume-50k", label: "50,000 lb Total Volume", earned: stats.totalVolume >= 50_000 },
+    { id: "volume-100k", label: "100,000 lb Total Volume", earned: stats.totalVolume >= 100_000 },
+    { id: "team-member", label: "Team Member", earned: myTeams.length > 0 },
+    { id: "gym-member", label: "Gym Member", earned: Boolean(profile?.gym_id) },
+  ];
+  const earnedBadges = badges.filter((badge) => badge.earned);
   const hasUsername = Boolean(profile?.username);
   const parsedWeightValue = Number(weight);
   const parsedRepsValue = Number(reps);
@@ -692,7 +749,7 @@ export default function DashboardPage() {
       .from("workout_entries")
       .select("id, exercise_name, weight, reps, sets, created_at, profiles(display_name, username, avatar_url)")
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(15);
 
     setIsLoadingRecentActivity(false);
 
@@ -761,11 +818,16 @@ export default function DashboardPage() {
     }
 
     setErrorMessage(null);
+    setSuccessMessage(null);
     setIsSubmitting(true);
 
     const parsedWeight = Number(weight);
     const parsedReps = Number(reps);
     const parsedSets = Number(sets);
+    const normalizedExercise = exerciseName.trim().toLowerCase();
+    const previousBestForExercise = workouts
+      .filter((entry) => entry.exercise_name.trim().toLowerCase() === normalizedExercise)
+      .reduce((best, entry) => Math.max(best, Number(entry.weight)), 0);
 
     const { error } = await supabase.from("workout_entries").insert({
       user_id: user.id,
@@ -788,12 +850,147 @@ export default function DashboardPage() {
     setReps("");
     setSets("");
     setWorkoutFormTouched(false);
+    if (parsedWeight > previousBestForExercise) {
+      setSuccessMessage(`New PR on ${exerciseName.trim()}: ${parsedWeight.toLocaleString()} lb!`);
+    } else {
+      setSuccessMessage("Workout added.");
+    }
 
     await fetchUserWorkouts(user.id);
     await fetchGlobalLeaderboard();
     await fetchTeamLeaderboard();
     await fetchGymLeaderboard();
     await fetchRecentActivity();
+  };
+
+  const handleDeleteWorkout = async (workoutId: string) => {
+    if (!user) {
+      setErrorMessage("You must be logged in to delete workouts.");
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this workout entry?");
+    if (!confirmed) return;
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setDeletingWorkoutId(workoutId);
+
+    const { data: deletedRows, error } = await supabase
+      .from("workout_entries")
+      .delete()
+      .eq("id", workoutId)
+      .eq("user_id", user.id)
+      .select("id");
+
+    setDeletingWorkoutId(null);
+
+    if (error) {
+      console.error("Failed to delete workout:", error);
+      setErrorMessage("Could not delete workout. Please try again.");
+      return;
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
+      setErrorMessage("Workout not found or you do not have permission to delete it.");
+      return;
+    }
+
+    setSuccessMessage("Workout deleted.");
+    await Promise.all([
+      fetchUserWorkouts(user.id),
+      fetchGlobalLeaderboard(),
+      fetchTeamLeaderboard(),
+      fetchGymLeaderboard(),
+      fetchRecentActivity(),
+    ]);
+  };
+
+  const handleStartWorkoutEdit = (entry: WorkoutEntry) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setEditingWorkoutId(entry.id);
+    setEditExerciseName(entry.exercise_name);
+    setEditWeight(String(entry.weight));
+    setEditReps(String(entry.reps));
+    setEditSets(String(entry.sets));
+  };
+
+  const handleCancelWorkoutEdit = () => {
+    setEditingWorkoutId(null);
+    setEditExerciseName("");
+    setEditWeight("");
+    setEditReps("");
+    setEditSets("");
+    setIsSavingWorkoutEdit(false);
+  };
+
+  const handleSaveWorkoutEdit = async (workoutId: string) => {
+    if (!user) {
+      setErrorMessage("You must be logged in to edit workouts.");
+      return;
+    }
+
+    const trimmedExercise = editExerciseName.trim();
+    const parsedWeight = Number(editWeight);
+    const parsedReps = Number(editReps);
+    const parsedSets = Number(editSets);
+
+    if (!trimmedExercise) {
+      setErrorMessage("Exercise name is required.");
+      return;
+    }
+    if (Number.isNaN(parsedWeight) || parsedWeight <= 0 || parsedWeight > 2000) {
+      setErrorMessage("Weight must be greater than 0 and 2000 or less.");
+      return;
+    }
+    if (Number.isNaN(parsedReps) || parsedReps <= 0 || parsedReps > 100) {
+      setErrorMessage("Reps must be greater than 0 and 100 or less.");
+      return;
+    }
+    if (Number.isNaN(parsedSets) || parsedSets <= 0 || parsedSets > 20) {
+      setErrorMessage("Sets must be greater than 0 and 20 or less.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsSavingWorkoutEdit(true);
+
+    const { data: updatedRows, error } = await supabase
+      .from("workout_entries")
+      .update({
+        exercise_name: trimmedExercise,
+        weight: parsedWeight,
+        reps: parsedReps,
+        sets: parsedSets,
+      })
+      .eq("id", workoutId)
+      .eq("user_id", user.id)
+      .select("id");
+
+    setIsSavingWorkoutEdit(false);
+
+    if (error) {
+      console.error("Failed to update workout:", error);
+      setErrorMessage("Could not update workout. Please try again.");
+      return;
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      setErrorMessage("Workout not found or you do not have permission to edit it.");
+      return;
+    }
+
+    handleCancelWorkoutEdit();
+    setSuccessMessage("Workout updated.");
+    await Promise.all([
+      fetchUserWorkouts(user.id),
+      fetchGlobalLeaderboard(),
+      fetchTeamLeaderboard(),
+      fetchGymLeaderboard(),
+      fetchRecentActivity(),
+    ]);
   };
 
   const handleProfileSave = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -1042,14 +1239,14 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-4 py-10">
+      <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center bg-gray-950 px-4 py-10">
         <p className="text-sm text-slate-200">Loading dashboard...</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center bg-gray-950 px-4 py-10">
       <section className="w-full rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
@@ -1065,17 +1262,18 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-400">User ID: {user?.id}</p>
             </div>
           </div>
-          <form onSubmit={handleProfileSave} className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100">
+          <form onSubmit={handleProfileSave} className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300">
               Display Name
               <input
                 type="text"
                 value={displayNameInput}
                 onChange={(event) => setDisplayNameInput(event.target.value)}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                placeholder="How others see you"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
             </label>
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300">
               Username
               <input
                 type="text"
@@ -1084,27 +1282,28 @@ export default function DashboardPage() {
                 required
                 minLength={3}
                 maxLength={20}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                placeholder="lowercase_username"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
             </label>
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100 sm:col-span-2">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300 sm:col-span-2">
               Avatar URL
               <input
                 type="url"
                 value={avatarUrlInput}
                 onChange={(event) => setAvatarUrlInput(event.target.value)}
                 placeholder="https://example.com/avatar.jpg"
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
             </label>
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100 sm:col-span-2">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300 sm:col-span-2">
               Upload Profile Picture
               <input
                 type="file"
                 accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
                 onChange={handleAvatarFileChange}
                 disabled={isUploadingAvatar}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-950 hover:file:bg-emerald-400"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white file:mr-3 file:rounded-md file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-950 hover:file:bg-emerald-400"
               />
               <span className="text-xs text-slate-300">PNG, JPG/JPEG, or WEBP. Max size 2MB.</span>
             </label>
@@ -1175,6 +1374,35 @@ export default function DashboardPage() {
           </article>
         </section>
 
+        <section className="mt-6 grid gap-3 sm:grid-cols-2">
+          <article className="rounded-xl border border-slate-700 bg-slate-950 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-300">Current Streak</p>
+            <p className="mt-2 text-2xl font-bold text-slate-100">{currentStreak} day{currentStreak === 1 ? "" : "s"}</p>
+          </article>
+          <article className="rounded-xl border border-slate-700 bg-slate-950 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-300">Total Workout Days</p>
+            <p className="mt-2 text-2xl font-bold text-slate-100">{totalWorkoutDays}</p>
+          </article>
+        </section>
+
+        <section className="mt-6 rounded-xl border border-slate-700 bg-slate-950 p-4 sm:p-5">
+          <h2 className="text-lg font-semibold text-slate-100">Badges</h2>
+          {earnedBadges.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-300">No badges yet. Log workouts to earn your first one.</p>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {earnedBadges.map((badge) => (
+                <span
+                  key={badge.id}
+                  className="rounded-full border border-emerald-500/50 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300"
+                >
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="mt-6 rounded-xl border border-slate-700 bg-slate-950 p-4 sm:p-5">
           <h2 className="text-lg font-semibold text-slate-100">Gym</h2>
           {isLoadingGyms ? (
@@ -1192,7 +1420,7 @@ export default function DashboardPage() {
                 )}
               </p>
               <form onSubmit={handleCreateGym} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium text-slate-100">
+                <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium text-gray-300">
                   New gym name
                   <input
                     type="text"
@@ -1201,7 +1429,7 @@ export default function DashboardPage() {
                     minLength={2}
                     maxLength={80}
                     placeholder="e.g. Iron Valley"
-                    className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                    className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
                   />
                 </label>
                 <button
@@ -1213,12 +1441,12 @@ export default function DashboardPage() {
                 </button>
               </form>
               <form onSubmit={handleJoinGym} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium text-slate-100">
+                <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium text-gray-300">
                   Join an existing gym
                   <select
                     value={joinGymId}
                     onChange={(event) => setJoinGymId(event.target.value)}
-                    className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                    className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
                   >
                     <option value="">Select a gym...</option>
                     {allGyms.map((gym) => (
@@ -1420,11 +1648,17 @@ export default function DashboardPage() {
                           </div>
                         </td>
                         <td className="px-2 py-2">
-                          {entry.exercise_name} - {Number(entry.weight).toLocaleString()} x {entry.reps} x{" "}
-                          {entry.sets}
+                          <div className="text-slate-100">
+                            {entry.exercise_name} - {Number(entry.weight).toLocaleString()} x {entry.reps} x{" "}
+                            {entry.sets}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            Volume: {(Number(entry.weight) * entry.reps * entry.sets).toLocaleString()}
+                          </div>
                         </td>
                         <td className="px-2 py-2">
-                          {new Date(entry.created_at).toLocaleString()}
+                          <div className="text-slate-100">{formatRelativeTime(entry.created_at)}</div>
+                          <div className="text-xs text-slate-400">{new Date(entry.created_at).toLocaleString()}</div>
                         </td>
                       </tr>
                     );
@@ -1442,8 +1676,8 @@ export default function DashboardPage() {
               Set a valid username in Profile first to enable workout submission.
             </p>
           ) : null}
-          <form onSubmit={handleWorkoutSubmit} className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100 sm:col-span-2">
+          <form onSubmit={handleWorkoutSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300 sm:col-span-2">
               Exercise Name
               <input
                 type="text"
@@ -1454,12 +1688,13 @@ export default function DashboardPage() {
                   setWorkoutFormTouched(true);
                 }}
                 disabled={!hasUsername}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                placeholder="e.g. Bench Press"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
               {exerciseError ? <span className="text-xs text-rose-400">{exerciseError}</span> : null}
             </label>
 
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300">
               Weight
               <input
                 type="number"
@@ -1472,12 +1707,13 @@ export default function DashboardPage() {
                   setWorkoutFormTouched(true);
                 }}
                 disabled={!hasUsername}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                placeholder="225"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
               {weightError ? <span className="text-xs text-rose-400">{weightError}</span> : null}
             </label>
 
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300">
               Reps
               <input
                 type="number"
@@ -1489,12 +1725,13 @@ export default function DashboardPage() {
                   setWorkoutFormTouched(true);
                 }}
                 disabled={!hasUsername}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                placeholder="5"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
               {repsError ? <span className="text-xs text-rose-400">{repsError}</span> : null}
             </label>
 
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300">
               Sets
               <input
                 type="number"
@@ -1506,7 +1743,8 @@ export default function DashboardPage() {
                   setWorkoutFormTouched(true);
                 }}
                 disabled={!hasUsername}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                placeholder="3"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
               {setsError ? <span className="text-xs text-rose-400">{setsError}</span> : null}
             </label>
@@ -1517,7 +1755,7 @@ export default function DashboardPage() {
                 disabled={isSubmitting || !hasUsername || !isWorkoutFormValid}
                 className="w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isSubmitting ? "Saving..." : "Save Workout"}
+                {isSubmitting ? "Adding workout..." : "Add Workout"}
               </button>
             </div>
           </form>
@@ -1528,24 +1766,26 @@ export default function DashboardPage() {
 
         <section className="mt-6 rounded-xl border border-slate-700 bg-slate-950 p-4 sm:p-5">
           <h2 className="text-lg font-semibold text-slate-100">Create Team</h2>
-          <form onSubmit={handleCreateTeam} className="mt-4 grid gap-3">
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100">
+          <form onSubmit={handleCreateTeam} className="mt-4 grid gap-4">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300">
               Team Name
               <input
                 type="text"
                 required
                 value={teamName}
                 onChange={(event) => setTeamName(event.target.value)}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                placeholder="e.g. Weekend Warriors"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
             </label>
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-100">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-300">
               Description (optional)
               <textarea
                 value={teamDescription}
                 onChange={(event) => setTeamDescription(event.target.value)}
                 rows={3}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                placeholder="What your team trains for"
+                className="rounded-lg border border-gray-600 bg-neutral-900 px-3 py-2 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
               />
             </label>
             <button
@@ -1648,6 +1888,7 @@ export default function DashboardPage() {
                     <th className="px-2 py-2 font-semibold">Reps</th>
                     <th className="px-2 py-2 font-semibold">Sets</th>
                     <th className="px-2 py-2 font-semibold">Volume</th>
+                    <th className="px-2 py-2 font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1657,11 +1898,106 @@ export default function DashboardPage() {
 
                     return (
                       <tr key={entry.id} className="border-b border-slate-800">
-                        <td className="px-2 py-2">{entry.exercise_name}</td>
-                        <td className="px-2 py-2">{entryWeight}</td>
-                        <td className="px-2 py-2">{entry.reps}</td>
-                        <td className="px-2 py-2">{entry.sets}</td>
-                        <td className="px-2 py-2 font-medium">{volume}</td>
+                        <td className="px-2 py-2">
+                          {editingWorkoutId === entry.id ? (
+                            <input
+                              type="text"
+                              value={editExerciseName}
+                              onChange={(event) => setEditExerciseName(event.target.value)}
+                              className="w-full rounded-lg border border-gray-600 bg-neutral-900 px-2 py-1.5 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                            />
+                          ) : (
+                            entry.exercise_name
+                          )}
+                        </td>
+                        <td className="px-2 py-2">
+                          {editingWorkoutId === entry.id ? (
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={editWeight}
+                              onChange={(event) => setEditWeight(event.target.value)}
+                              className="w-24 rounded-lg border border-gray-600 bg-neutral-900 px-2 py-1.5 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                            />
+                          ) : (
+                            entryWeight
+                          )}
+                        </td>
+                        <td className="px-2 py-2">
+                          {editingWorkoutId === entry.id ? (
+                            <input
+                              type="number"
+                              min="1"
+                              value={editReps}
+                              onChange={(event) => setEditReps(event.target.value)}
+                              className="w-20 rounded-lg border border-gray-600 bg-neutral-900 px-2 py-1.5 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                            />
+                          ) : (
+                            entry.reps
+                          )}
+                        </td>
+                        <td className="px-2 py-2">
+                          {editingWorkoutId === entry.id ? (
+                            <input
+                              type="number"
+                              min="1"
+                              value={editSets}
+                              onChange={(event) => setEditSets(event.target.value)}
+                              className="w-20 rounded-lg border border-gray-600 bg-neutral-900 px-2 py-1.5 text-white placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900"
+                            />
+                          ) : (
+                            entry.sets
+                          )}
+                        </td>
+                        <td className="px-2 py-2 font-medium">
+                          {editingWorkoutId === entry.id
+                            ? (Number(editWeight || 0) * Number(editReps || 0) * Number(editSets || 0)).toLocaleString()
+                            : volume}
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex flex-wrap gap-2">
+                            {editingWorkoutId === entry.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveWorkoutEdit(entry.id)}
+                                  disabled={isSavingWorkoutEdit}
+                                  className="rounded-lg border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  {isSavingWorkoutEdit ? "Saving..." : "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelWorkoutEdit}
+                                  disabled={isSavingWorkoutEdit}
+                                  className="rounded-lg border border-slate-500/70 bg-slate-500/10 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartWorkoutEdit(entry)}
+                                  disabled={Boolean(editingWorkoutId) || deletingWorkoutId === entry.id}
+                                  className="rounded-lg border border-blue-500/70 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteWorkout(entry.id)}
+                                  disabled={deletingWorkoutId === entry.id || Boolean(editingWorkoutId)}
+                                  className="rounded-lg border border-rose-500/70 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  {deletingWorkoutId === entry.id ? "Deleting..." : "Delete"}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}

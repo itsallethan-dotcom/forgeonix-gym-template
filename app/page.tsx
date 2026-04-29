@@ -41,6 +41,27 @@ type TeamLeaderboardRow = {
   bestLift: number;
 };
 
+type RecentActivityRow = {
+  id: string;
+  exercise_name: string;
+  weight: number | string;
+  reps: number;
+  sets: number;
+  created_at: string;
+  profiles:
+    | {
+        display_name: string | null;
+        username: string | null;
+        avatar_url: string | null;
+      }
+    | {
+        display_name: string | null;
+        username: string | null;
+        avatar_url: string | null;
+      }[]
+    | null;
+};
+
 function isEmailLike(value: string | null | undefined) {
   return Boolean(value && value.includes("@"));
 }
@@ -52,22 +73,40 @@ function publicDisplayName(displayName: string | null, username: string | null) 
   return "Unknown User";
 }
 
+function formatRelativeTime(value: string) {
+  const ms = new Date(value).getTime() - Date.now();
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (Math.abs(ms) < hour) return formatter.format(Math.round(ms / minute), "minute");
+  if (Math.abs(ms) < day) return formatter.format(Math.round(ms / hour), "hour");
+  return formatter.format(Math.round(ms / day), "day");
+}
+
 export default async function Home() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  const [profilesResponse, workoutsResponse, teamsResponse, membersResponse] = await Promise.all([
+  const [profilesResponse, workoutsResponse, teamsResponse, membersResponse, recentActivityResponse] =
+    await Promise.all([
     supabase.from("profiles").select("id, display_name, username, avatar_url"),
     supabase.from("workout_entries").select("user_id, weight, reps, sets"),
     supabase.from("teams").select("id, name"),
     supabase.from("team_members").select("team_id, user_id"),
-  ]);
+    supabase
+      .from("workout_entries")
+      .select("id, exercise_name, weight, reps, sets, created_at, profiles(display_name, username, avatar_url)")
+      .order("created_at", { ascending: false })
+      .limit(15),
+    ]);
 
   const profiles = (profilesResponse.data ?? []) as ProfileRow[];
   const workouts = (workoutsResponse.data ?? []) as WorkoutRow[];
   const teams = (teamsResponse.data ?? []) as TeamRow[];
   const teamMembers = (membersResponse.data ?? []) as TeamMemberRow[];
+  const recentActivity = (recentActivityResponse.data ?? []) as RecentActivityRow[];
 
   const usersById = new Map<string, IndividualLeaderboardRow>();
   for (const profile of profiles) {
@@ -255,6 +294,56 @@ export default async function Home() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl sm:p-8">
+          <h2 className="text-xl font-semibold text-slate-100">Recent Activity</h2>
+          {recentActivity.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-300">No recent workouts yet.</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-200">
+                    <th className="px-3 py-2 font-semibold">Athlete</th>
+                    <th className="px-3 py-2 font-semibold">Workout</th>
+                    <th className="px-3 py-2 font-semibold">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentActivity.map((entry) => {
+                    const profile = Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles;
+                    const athleteName = publicDisplayName(
+                      profile?.display_name ?? null,
+                      profile?.username ?? null,
+                    );
+                    const volume = Number(entry.weight) * entry.reps * entry.sets;
+                    return (
+                      <tr key={entry.id} className="border-b border-slate-800">
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar name={athleteName} avatarUrl={profile?.avatar_url ?? null} size="sm" />
+                            <span>{athleteName}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="text-slate-100">
+                            {entry.exercise_name} - {Number(entry.weight).toLocaleString()} x {entry.reps} x{" "}
+                            {entry.sets}
+                          </div>
+                          <div className="text-xs text-slate-400">Volume: {volume.toLocaleString()}</div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="text-slate-100">{formatRelativeTime(entry.created_at)}</div>
+                          <div className="text-xs text-slate-400">{new Date(entry.created_at).toLocaleString()}</div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </main>
     </div>
