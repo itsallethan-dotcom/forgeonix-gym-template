@@ -42,7 +42,7 @@ export default function Home() {
         </p>
         <p className="text-zinc-400">IT Support & Systems Builder</p>
         <p className="mt-4 max-w-3xl text-sm text-cyan-300/90">
-          3+ years hands-on IT experience • Windows systems • troubleshooting
+          5+ years hands-on IT experience • Windows systems • troubleshooting
           • user support
         </p>
 
