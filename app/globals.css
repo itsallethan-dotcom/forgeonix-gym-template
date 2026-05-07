@@ -257,7 +257,7 @@ body {
     0 0 18px rgba(34, 211, 238, 0.12);
 }
 
-/* ——— Forgeonix transparent PNG hero mark (no frame, no plate behind art) ——— */
+/* ——— Transparent PNG hero mark (no frame, no plate behind art) ——— */
 @keyframes fn-hero-mark-glow-pulse {
   0%,
   100% {
@@ -372,8 +372,8 @@ body {
   background-position: 100% 50%;
   mix-blend-mode: soft-light;
   animation: fn-hero-mark-shine 8.5s ease-in-out infinite;
-  -webkit-mask-image: url("/forgeonix-logo-transparent.png");
-  mask-image: url("/forgeonix-logo-transparent.png");
+  -webkit-mask-image: url("/branding/logo-placeholder.svg");
+  mask-image: url("/branding/logo-placeholder.svg");
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Avatar } from "@/components/avatar";
 import { useAppData } from "@/hooks/use-app-data";
@@ -17,18 +17,6 @@ export default function ProfilePage() {
     error,
     user,
   } = useAppData();
-  const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDisplayName(profile?.display_name ?? "");
-    setUsername(profile?.username ?? "");
-    setAvatarUrl(profile?.avatar_url ?? "");
-    setPreviewUrl(profile?.avatar_url ?? null);
-  }, [profile]);
 
   if (loading) return <main className="min-h-screen bg-gray-950" />;
 
@@ -39,16 +27,6 @@ export default function ProfilePage() {
       profileDisplayName={profileDisplayName}
       avatarUrl={profile?.avatar_url ?? null}
     >
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <div className="flex items-center gap-3">
-          <Avatar name={profileDisplayName} avatarUrl={previewUrl ?? profile?.avatar_url ?? null} size="lg" />
-          <div>
-            <p className="font-semibold">{profileDisplayName}</p>
-            <p className="text-sm text-slate-300">@{profile?.username ?? "username"}</p>
-          </div>
-        </div>
-      </section>
-
       <section className="grid gap-3 sm:grid-cols-3">
         <article className="rounded-xl border border-slate-700 bg-slate-900 p-4">
           <p className="text-xs text-slate-400">Total Volume</p>
@@ -62,6 +40,52 @@ export default function ProfilePage() {
           <p className="text-xs text-slate-400">Entries</p>
           <p className="mt-2 text-2xl font-bold">{stats.totalEntries}</p>
         </article>
+      </section>
+
+      <ProfileEditor
+        key={profile?.id ?? "profile-editor"}
+        profile={profile}
+        profileDisplayName={profileDisplayName}
+        saveProfile={saveProfile}
+        uploadAvatar={uploadAvatar}
+        error={error}
+        message={message}
+      />
+    </AppShell>
+  );
+}
+
+function ProfileEditor({
+  profile,
+  profileDisplayName,
+  saveProfile,
+  uploadAvatar,
+  error,
+  message,
+}: {
+  profile: { id: string; display_name: string | null; username: string | null; avatar_url: string | null } | null;
+  profileDisplayName: string;
+  saveProfile: (payload: { display_name: string; username: string; avatar_url: string | null }) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
+  error: string | null;
+  message: string | null;
+}) {
+  const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
+  const [username, setUsername] = useState(profile?.username ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? "");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(profile?.avatar_url ?? null);
+
+  return (
+    <>
+      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
+        <div className="flex items-center gap-3">
+          <Avatar name={profileDisplayName} avatarUrl={previewUrl ?? profile?.avatar_url ?? null} size="lg" />
+          <div>
+            <p className="font-semibold">{profileDisplayName}</p>
+            <p className="text-sm text-slate-300">@{profile?.username ?? "username"}</p>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
@@ -111,6 +135,6 @@ export default function ProfilePage() {
         {error ? <p className="mt-3 text-sm text-rose-400">{error}</p> : null}
         {message ? <p className="mt-2 text-sm text-emerald-400">{message}</p> : null}
       </section>
-    </AppShell>
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { clientConfig } from "@/lib/client-config";
 import { supabase } from "@/lib/supabase/client";
 
 export default function SignupPage() {
@@ -39,7 +40,7 @@ export default function SignupPage() {
           href="/"
           className="inline-flex rounded-lg border border-gray-600 bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:border-cyan-400/40 hover:text-cyan-300"
         >
-          Back to Forgeonix
+          Back to {clientConfig.gymName}
         </Link>
         <h1 className="text-2xl font-bold text-white">Create account</h1>
         <p className="mt-1 text-sm text-gray-300">Sign up to access your dashboard.</p>

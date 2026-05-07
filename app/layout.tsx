@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { clientConfig } from "@/lib/client-config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Forgeonix | Systems, Support, Infrastructure",
+  title: `${clientConfig.appName} | Gym Leaderboard`,
   description:
-    "Forgeonix delivers practical IT support, systems troubleshooting, automation, and infrastructure-minded solutions built for reliability.",
+    "A reusable gym leaderboard app with member rankings, workout tracking, teams, and profile management.",
 };
 
 export default function RootLayout({

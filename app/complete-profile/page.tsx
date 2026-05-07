@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { clientConfig } from "@/lib/client-config";
 import { ensureProfileRow, supabase } from "@/lib/supabase/client";
 
 const usernameRule = /^[a-z0-9_]{3,20}$/;
@@ -122,7 +123,7 @@ export default function CompleteProfilePage() {
       <section className="w-full max-w-lg rounded-xl border border-slate-800 bg-gray-900 p-6 shadow sm:p-8">
         <h1 className="text-2xl font-bold text-slate-100">Complete Profile</h1>
         <p className="mt-2 text-sm text-slate-300">
-          Set your username to continue to LiftBoard.
+          Set your username to continue to {clientConfig.appName}.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-5">

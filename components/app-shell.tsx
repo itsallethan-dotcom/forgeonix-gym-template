@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { LogoutButton } from "@/components/logout-button";
+import { clientConfig } from "@/lib/client-config";
 
 const loggedInNavItems = [
   { href: "/dashboard", label: "Leaderboard" },
@@ -45,7 +46,7 @@ export function AppShell({
                 href="/"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-semibold text-slate-200 transition hover:border-cyan-400/40 hover:text-cyan-300"
               >
-                Back to Forgeonix
+                Back to {clientConfig.gymName}
               </Link>
             </div>
             {user ? (

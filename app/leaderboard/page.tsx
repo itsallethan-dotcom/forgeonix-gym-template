@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LandingBackgroundLayer } from "@/components/landing-background-layer";
+import { clientConfig } from "@/lib/client-config";
 
 export const metadata: Metadata = {
-  title: "Workout Leaderboard | Forgeonix",
+  title: `Workout Leaderboard | ${clientConfig.appName}`,
   description:
     "Live gym leaderboards that drive competition with member rankings, team challenges, and PR tracking.",
 };
@@ -57,14 +58,14 @@ export default function LeaderboardLandingPage() {
               href="/"
               className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm font-semibold text-zinc-100"
             >
-              Back to Forgeonix
+              Back to Home
             </Link>
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href="/dashboard"
                 className={`rounded-lg border border-cyan-400/40 bg-zinc-900 px-3 py-1.5 text-sm font-semibold text-cyan-300 ${subtleHover}`}
               >
-                Try Demo
+                {clientConfig.demoCtaLabel}
               </Link>
               <Link
                 href="/login"
@@ -98,7 +99,7 @@ export default function LeaderboardLandingPage() {
                 href="/dashboard"
                 className={`rounded-xl border border-cyan-400/40 bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-zinc-950 ${subtleHover}`}
               >
-                Try Demo
+                {clientConfig.demoCtaLabel}
               </Link>
               <Link
                 href="/login"
@@ -206,7 +207,7 @@ export default function LeaderboardLandingPage() {
                 href="/dashboard"
                 className={`rounded-xl border border-cyan-400/40 bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-zinc-950 ${subtleHover}`}
               >
-                Try Demo
+                {clientConfig.demoCtaLabel}
               </Link>
               <Link
                 href="/signup"
