@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { DemoWatermark } from "@/components/demo/demo-watermark";
 import { clientConfig } from "@/lib/client-config";
 import { demoData } from "@/lib/demo-data";
 import { useCanViewDashboard } from "@/hooks/use-can-view-dashboard";
@@ -11,7 +12,7 @@ export function ClassicPublicDemoPage() {
   const canViewDashboard = useCanViewDashboard();
 
   return (
-    <main className="min-h-screen bg-gray-950 px-4 py-8 text-slate-100 sm:px-6">
+    <main className="relative min-h-screen bg-gray-950 px-4 pb-16 pt-8 text-slate-100 sm:px-6 sm:pb-20">
       <div className="mx-auto w-full max-w-6xl space-y-6">
         <header className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -31,10 +32,28 @@ export function ClassicPublicDemoPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link
+                href="/demo/options"
+                className="rounded-lg border border-zinc-600 bg-zinc-800/80 px-3 py-2 text-sm font-semibold text-zinc-200"
+              >
+                Browse layouts
+              </Link>
+              <Link
                 href="/demo/impact"
                 className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200"
               >
                 View Impact Demo
+              </Link>
+              <Link
+                href="/demo/arena"
+                className="rounded-lg border border-fuchsia-500/40 bg-fuchsia-500/10 px-3 py-2 text-sm font-semibold text-fuchsia-200"
+              >
+                View Arena Demo
+              </Link>
+              <Link
+                href="/demo/tv"
+                className="rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200"
+              >
+                TV Mode
               </Link>
               <Link
                 href="/signup"
@@ -131,6 +150,7 @@ export function ClassicPublicDemoPage() {
           </a>
         </footer>
       </div>
+      <DemoWatermark />
     </main>
   );
 }

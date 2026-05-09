@@ -5,6 +5,8 @@ export type DemoLeaderboardEntry = {
   totalVolume: number;
   bestLift: number;
   streakDays: number;
+  /** Mock week-over-week style hint for showcase demos only */
+  volumeDeltaMock: string;
 };
 
 export type DemoTeam = {
@@ -22,9 +24,23 @@ export type DemoWorkout = {
   reps: number;
   sets: number;
   recordedAt: string;
+  isPR?: boolean;
+  prNote?: string;
+};
+
+export type DemoChallenge = {
+  title: string;
+  endsInLabel: string;
+  prize: string;
 };
 
 export const demoData = {
+  /** Mock event — Arena / showcase demos only */
+  challenge: {
+    title: "May Volume War",
+    endsInLabel: "Ends in 6 days",
+    prize: "Top lifter wins gym merch",
+  } satisfies DemoChallenge,
   users: [
     { id: "u1", name: "Ava Carter" },
     { id: "u2", name: "Maya Brooks" },
@@ -39,6 +55,7 @@ export const demoData = {
       totalVolume: 52340,
       bestLift: 315,
       streakDays: 12,
+      volumeDeltaMock: "+1.8k",
     },
     {
       id: "u2",
@@ -47,6 +64,7 @@ export const demoData = {
       totalVolume: 49720,
       bestLift: 335,
       streakDays: 9,
+      volumeDeltaMock: "+920",
     },
     {
       id: "u3",
@@ -55,6 +73,7 @@ export const demoData = {
       totalVolume: 48110,
       bestLift: 295,
       streakDays: 15,
+      volumeDeltaMock: "+2.1k",
     },
     {
       id: "u4",
@@ -63,6 +82,7 @@ export const demoData = {
       totalVolume: 46980,
       bestLift: 305,
       streakDays: 7,
+      volumeDeltaMock: "+640",
     },
   ] as DemoLeaderboardEntry[],
   teams: [
@@ -79,6 +99,8 @@ export const demoData = {
       reps: 8,
       sets: 4,
       recordedAt: "Today, 7:42 AM",
+      isPR: true,
+      prNote: "Squat PR +10 lb",
     },
     {
       id: "w2",
@@ -88,6 +110,8 @@ export const demoData = {
       reps: 5,
       sets: 5,
       recordedAt: "Today, 6:58 AM",
+      isPR: true,
+      prNote: "Deadlift PR +5 lb",
     },
     {
       id: "w3",

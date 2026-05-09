@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
+import { DemoWatermark } from "@/components/demo/demo-watermark";
 import { clientConfig } from "@/lib/client-config";
 import { demoData } from "@/lib/demo-data";
 import { useCanViewDashboard } from "@/hooks/use-can-view-dashboard";
@@ -34,7 +35,7 @@ export function ImpactPublicDemoPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#0c0a09] px-4 py-6 pb-10 text-stone-100 sm:px-6">
+    <main className="relative min-h-screen bg-[#0c0a09] px-4 py-6 pb-20 text-stone-100 sm:px-6 sm:pb-24">
       <div className="mx-auto max-w-6xl space-y-6">
         {/* Hero — scoreboard header */}
         <section className="relative overflow-hidden rounded-2xl border border-orange-500/25 bg-gradient-to-br from-zinc-950 via-[#1a1008] to-zinc-950 p-6 shadow-[0_0_40px_rgba(249,115,22,0.12)] sm:p-8">
@@ -69,6 +70,24 @@ export function ImpactPublicDemoPage() {
                 className="rounded-lg border border-stone-600 bg-stone-900 px-4 py-2.5 text-sm font-bold text-stone-200"
               >
                 View Classic Demo
+              </Link>
+              <Link
+                href="/demo/options"
+                className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm font-bold text-zinc-200"
+              >
+                Browse layouts
+              </Link>
+              <Link
+                href="/demo/arena"
+                className="rounded-lg border border-fuchsia-500/40 bg-fuchsia-950/50 px-4 py-2.5 text-sm font-bold text-fuchsia-200"
+              >
+                View Arena Demo
+              </Link>
+              <Link
+                href="/demo/impact/tv"
+                className="rounded-lg border border-stone-500 bg-stone-800 px-4 py-2.5 text-sm font-bold text-stone-200"
+              >
+                TV Mode
               </Link>
               <Link
                 href="/signup"
@@ -253,6 +272,7 @@ export function ImpactPublicDemoPage() {
           </a>
         </footer>
       </div>
+      <DemoWatermark />
     </main>
   );
 }
